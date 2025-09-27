@@ -10,6 +10,8 @@ from models import User, Recipe
 class Signup(Resource):
     def post(self):
         data = request.get_json()
+        if not data:
+            return {'errors': ['Invalid JSON']}, 422
         try:
             if not data.get('username'):
                 raise ValueError('Username must be present')
@@ -27,6 +29,7 @@ class Signup(Resource):
             session['user_id'] = user.id
             return user.to_dict(), 201
         except (ValueError, IntegrityError) as e:
+            db.session.rollback()
             return {'errors': [str(e)]}, 422
 
 class CheckSession(Resource):
@@ -40,6 +43,8 @@ class CheckSession(Resource):
 class Login(Resource):
     def post(self):
         data = request.get_json()
+        if not data:
+            return {'error': 'Invalid username or password'}, 401
         username = data.get('username')
         password = data.get('password')
         
@@ -70,6 +75,8 @@ class RecipeIndex(Resource):
         if 'user_id' not in session or not session['user_id']:
             return {'error': 'Unauthorized'}, 401
         data = request.get_json()
+        if not data:
+            return {'errors': ['Invalid JSON']}, 422
         try:
             recipe = Recipe(
                 title=data.get('title'),
@@ -80,7 +87,8 @@ class RecipeIndex(Resource):
             db.session.add(recipe)
             db.session.commit()
             return recipe.to_dict(), 201
-        except (ValueError, KeyError) as e:
+        except ValueError as e:
+            db.session.rollback()
             return {'errors': [str(e)]}, 422
 
 api.add_resource(Signup, '/signup', endpoint='signup')
